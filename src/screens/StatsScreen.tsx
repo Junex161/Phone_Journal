@@ -3,12 +3,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { Card } from '../components/Card';
+import { Icon } from '../components/Icon';
 import { useDataVersion } from '../dataVersion';
 import { fromKey, MONTHS } from '../dates';
 import { allAnswers, type Entry } from '../db';
 import { metricByKey, METRICS, type Metric, type MetricKey } from '../questions';
 import { describeR, mean, movingAverage, pearson, variance, welchTTest } from '../stats';
-import { colors } from '../theme';
+import { makeStyles, useColors } from '../theme';
 
 const CHART_H = 180;
 const PAD_L = 28;
@@ -27,6 +28,8 @@ const pText = (p: number) => (p < 0.001 ? 'p < 0.001' : `p = ${p.toFixed(3)}`);
 const fmtVal = (m: Metric, v: number, digits = 1) => `${v.toFixed(digits)}${m.unit ? ` ${m.unit}` : ''}`;
 
 export function StatsScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const db = useSQLiteContext();
   const { version } = useDataVersion();
   const { width } = useWindowDimensions();
@@ -140,11 +143,11 @@ export function StatsScreen() {
         <Text style={styles.h1}>Statistics</Text>
         <View style={styles.yearNav}>
           <Pressable onPress={() => setYear(year - 1)} hitSlop={12} disabled={year <= firstYear}>
-            <Text style={[styles.arrow, year <= firstYear && { opacity: 0.25 }]}>‹</Text>
+            <View style={year <= firstYear && { opacity: 0.25 }}><Icon name="chevronLeft" size={20} color={colors.primary} /></View>
           </Pressable>
           <Text style={styles.year}>{year}</Text>
           <Pressable onPress={() => setYear(year + 1)} hitSlop={12} disabled={year >= thisYear}>
-            <Text style={[styles.arrow, year >= thisYear && { opacity: 0.25 }]}>›</Text>
+            <View style={year >= thisYear && { opacity: 0.25 }}><Icon name="chevronRight" size={20} color={colors.primary} /></View>
           </Pressable>
         </View>
       </View>
@@ -322,6 +325,8 @@ function MetricChips({
   onChange: (k: MetricKey) => void;
   small?: boolean;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: small ? 6 : 10, flexGrow: 0, flexShrink: 1 }}>
       {METRICS.map((m) => (
@@ -342,6 +347,8 @@ function MetricChips({
 }
 
 function Tile({ label, value }: { label: string; value: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.tile}>
       <Text style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit>
@@ -363,6 +370,8 @@ function MonthPicker({
   months: MonthId[];
   onChange: (m: MonthId) => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={[styles.inlinePicker, { marginBottom: 8 }]}>
       <Text style={[styles.inlineLabel, { marginBottom: 0 }]}>{label}</Text>
@@ -396,6 +405,8 @@ function ComparisonResult({
   nA: number;
   nB: number;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   if (monthA == null || monthB == null) {
     return <Text style={styles.muted}>You need answers in at least two months to compare.</Text>;
   }
@@ -436,7 +447,7 @@ function ComparisonResult({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => StyleSheet.create({
   content: { padding: 16, paddingBottom: 32 },
   h1: { fontSize: 30, fontWeight: '800', color: colors.text },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
@@ -445,7 +456,7 @@ const styles = StyleSheet.create({
   questionScale: { fontSize: 12, color: colors.muted, marginTop: 2 },
   segment: { flexDirection: 'row', backgroundColor: colors.bg, borderRadius: 10, padding: 3, marginBottom: 10 },
   segmentBtn: { flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center' },
-  segmentActive: { backgroundColor: '#fff', elevation: 1 },
+  segmentActive: { backgroundColor: colors.card },
   segmentText: { fontWeight: '600', color: colors.muted, fontSize: 13 },
   inlinePicker: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   inlineLabel: { width: 18, fontSize: 16, color: colors.muted, fontWeight: '700', marginBottom: 6 },
@@ -458,7 +469,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     marginRight: 8,
   },
   chipSmall: { paddingHorizontal: 10, paddingVertical: 5 },
@@ -478,7 +489,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     marginRight: 6,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
   },
   result: { marginTop: 8, padding: 12, backgroundColor: colors.bg, borderRadius: 12 },
   resultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
@@ -487,4 +498,4 @@ const styles = StyleSheet.create({
   resultMean: { fontSize: 26, fontWeight: '800', color: colors.text, textAlign: 'center' },
   vs: { color: colors.muted, fontWeight: '700' },
   verdict: { marginTop: 10, fontWeight: '700', textAlign: 'center' },
-});
+}));

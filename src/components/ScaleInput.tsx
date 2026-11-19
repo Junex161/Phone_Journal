@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ScaleQuestion } from '../questions';
 import { scoreColor } from '../questions';
-import { colors } from '../theme';
+import { makeStyles } from '../theme';
 
 interface Props {
   question: ScaleQuestion;
@@ -9,22 +9,24 @@ interface Props {
   onChange: (value: number | null) => void;
 }
 
-/** A 1-10 tap scale. Tapping the selected number again clears the answer. */
+/** A 1-10 tap scale shown as one rounded track. Tapping the selected number again clears it. */
 export function ScaleInput({ question, value, onChange }: Props) {
+  const styles = useStyles();
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>{question.label}</Text>
-      <View style={styles.row}>
+      <QuestionLabel>{question.label}</QuestionLabel>
+      <View style={styles.track}>
         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
           const selected = value === n;
           return (
             <Pressable
               key={n}
               onPress={() => onChange(selected ? null : n)}
-              style={[styles.chip, selected && { backgroundColor: scoreColor(n), borderColor: scoreColor(n) }]}
+              style={[styles.cell, selected && { backgroundColor: scoreColor(n) }]}
               accessibilityLabel={`${question.label} ${n}`}
+              hitSlop={{ top: 6, bottom: 6 }}
             >
-              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{n}</Text>
+              <Text style={[styles.cellText, selected && styles.cellTextSelected]}>{n}</Text>
             </Pressable>
           );
         })}
@@ -37,26 +39,27 @@ export function ScaleInput({ question, value, onChange }: Props) {
   );
 }
 
-export const surveyStyles = StyleSheet.create({
-  label: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 10 },
-});
+export function QuestionLabel({ children }: { children: string }) {
+  const styles = useStyles();
+  return <Text style={styles.label}>{children}</Text>;
+}
 
-const styles = StyleSheet.create({
-  wrap: { marginBottom: 18 },
-  label: surveyStyles.label,
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
-  chip: {
-    width: 30,
-    height: 38,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  chipText: { color: colors.text, fontWeight: '600' },
-  chipTextSelected: { color: '#fff' },
-  ends: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  end: { fontSize: 12, color: colors.muted },
-});
+const useStyles = makeStyles((c) =>
+  StyleSheet.create({
+    wrap: { marginBottom: 22 },
+    label: { fontSize: 16, fontWeight: '600', color: c.text, marginBottom: 12 },
+    track: {
+      flexDirection: 'row',
+      backgroundColor: c.cardAlt,
+      borderRadius: 14,
+      padding: 3,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    cell: { flex: 1, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+    cellText: { color: c.muted, fontWeight: '600', fontSize: 15 },
+    cellTextSelected: { color: '#fff', fontWeight: '800' },
+    ends: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingHorizontal: 4 },
+    end: { fontSize: 12, color: c.faint },
+  }),
+);

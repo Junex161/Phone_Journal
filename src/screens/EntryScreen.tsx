@@ -10,11 +10,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/Card';
 import { HoursStepper } from '../components/HoursStepper';
+import { Icon } from '../components/Icon';
 import { MemoPlayer } from '../components/MemoPlayer';
 import { ScaleInput } from '../components/ScaleInput';
 import { SocialInput } from '../components/SocialInput';
 import { useDataVersion } from '../dataVersion';
-import { addDays, formatDuration, formatLong, todayKey } from '../dates';
+import { addDays, formatDuration, formatLong, fromKey, todayKey } from '../dates';
 import {
   addMemo,
   deleteMemo,
@@ -31,7 +32,7 @@ import {
 import { deleteMemoFile, storeRecording } from '../memoFiles';
 import { DAY_SCALES, SLEEP_SCALES } from '../questions';
 import { recordingGuard } from '../recordingGuard';
-import { colors } from '../theme';
+import { makeStyles, useColors } from '../theme';
 
 interface Props {
   date: string;
@@ -45,14 +46,30 @@ interface PendingRecording {
   fileName: string;
 }
 
+type Part = 'day' | 'night';
+
+function progress(e: Entry, dayMemos: number) {
+  const day = [dayMemos > 0, e.rating != null, e.social != null, e.growth != null];
+  const night = [e.sleep_hours != null, e.dream_vibe != null, e.rested != null];
+  return {
+    day: day.filter(Boolean).length,
+    dayTotal: day.length,
+    night: night.filter(Boolean).length,
+    nightTotal: night.length,
+  };
+}
+
 export function EntryScreen({ date, onChangeDate, onClose }: Props) {
   const db = useSQLiteContext();
+  const styles = useStyles();
+  const colors = useColors();
   const { bump } = useDataVersion();
   const [entry, setEntry] = useState<Entry | null>(null);
   const [memos, setMemos] = useState<Memo[]>([]);
   const [sleepSuggestion, setSleepSuggestion] = useState<number | null>(null);
   const [recordingKind, setRecordingKind] = useState<MemoKind | null>(null);
-  // Render the body only once everything is loaded, so nothing (like the done box) pops in late.
+  const [part, setPart] = useState<Part>('day');
+  // Render the body only once everything is loaded, so nothing (like the done banner) pops in late.
   const [loaded, setLoaded] = useState(false);
   const pending = useRef<PendingRecording | null>(null);
 
@@ -64,17 +81,23 @@ export function EntryScreen({ date, onChangeDate, onClose }: Props) {
     setEntry(e);
     setMemos(m);
     setSleepSuggestion(s);
-    setLoaded(true);
+    return { e, m };
   }, [db, date]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load().then(({ e, m }) => {
+      // In the morning, open today's entry on the night part if it's still empty.
+      const p = progress(e, m.filter((x) => x.kind === 'day').length);
+      if (date === todayKey() && new Date().getHours() < 12 && p.night < p.nightTotal) setPart('night');
+      setLoaded(true);
+    });
+  }, [load, date]);
 
   const isToday = date === todayKey();
   const canGoForward = date < todayKey();
   const dayMemoCount = memos.filter((m) => m.kind === 'day').length;
   const done = entry ? isDayDone(entry, dayMemoCount) : false;
+  const prog = entry ? progress(entry, dayMemoCount) : null;
 
   const update = async (field: EntryField, value: number | string | null) => {
     setEntry((e) => (e ? { ...e, [field]: value } : e));
@@ -145,7 +168,7 @@ export function EntryScreen({ date, onChangeDate, onClose }: Props) {
     bump();
   };
 
-  const guardedNavigate = (fn: () => void) => {
+  const guarded = (fn: () => void) => () => {
     if (recordingKind) {
       Alert.alert('Recording in progress', 'Stop the recording first.');
       return;
@@ -153,11 +176,20 @@ export function EntryScreen({ date, onChangeDate, onClose }: Props) {
     fn();
   };
 
-  const renderMemoSection = (kind: MemoKind) => {
+  const renderMemos = (kind: MemoKind) => {
     const list = memos.filter((m) => m.kind === kind);
     const accent = kind === 'day' ? colors.primary : colors.dream;
     const recordingThis = recordingKind === kind;
     const otherRecording = recordingKind !== null && !recordingThis;
+    const label = recordingThis
+      ? `Stop  ·  ${formatDuration(recState.durationMillis)}`
+      : kind === 'day'
+        ? list.length
+          ? 'Add another memo'
+          : 'Record memo'
+        : list.length
+          ? 'Add another dream'
+          : 'Record dream';
     return (
       <View>
         {list.map((m, i) => (
@@ -165,7 +197,7 @@ export function EntryScreen({ date, onChangeDate, onClose }: Props) {
         ))}
         {list.length === 0 && !recordingThis ? (
           <Text style={styles.empty}>
-            {kind === 'day' ? 'No memo yet. Tell your phone about your day.' : 'Remember a dream? Record it here.'}
+            {kind === 'day' ? 'Tell your phone about your day.' : 'Remember a dream? Record it here.'}
           </Text>
         ) : null}
         <Pressable
@@ -177,137 +209,185 @@ export function EntryScreen({ date, onChangeDate, onClose }: Props) {
             otherRecording && { opacity: 0.4 },
           ]}
         >
-          <View style={recordingThis ? styles.stopIcon : styles.recDot} />
-          <Text style={styles.recordText}>
-            {recordingThis
-              ? `Stop  ·  ${formatDuration(recState.durationMillis)}`
-              : list.length
-                ? kind === 'day'
-                  ? 'Record another memo'
-                  : 'Record another dream'
-                : kind === 'day'
-                  ? 'Record memo'
-                  : 'Record dream'}
-          </Text>
+          {recordingThis ? <View style={styles.stopIcon} /> : <Icon name="mic" size={20} color="#fff" />}
+          <Text style={styles.recordText}>{label}</Text>
         </Pressable>
       </View>
     );
   };
 
+  const weekday = fromKey(date).toLocaleDateString('en-US', { weekday: 'long' });
+
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.header}>
-        <Pressable onPress={() => guardedNavigate(onClose)} hitSlop={12}>
-          <Text style={styles.back}>‹ Back</Text>
+      <View style={styles.topBar}>
+        <Pressable onPress={guarded(onClose)} hitSlop={12} style={styles.iconBtn} accessibilityLabel="Back">
+          <Icon name="chevronLeft" size={22} color={colors.text} />
         </Pressable>
         <View style={styles.dayNav}>
-          <Pressable onPress={() => guardedNavigate(() => onChangeDate(addDays(date, -1)))} hitSlop={12}>
-            <Text style={styles.arrow}>‹</Text>
+          <Pressable
+            onPress={guarded(() => onChangeDate(addDays(date, -1)))}
+            hitSlop={12}
+            style={styles.iconBtn}
+            accessibilityLabel="Previous day"
+          >
+            <Icon name="chevronLeft" size={20} color={colors.muted} />
           </Pressable>
           <Pressable
             disabled={!canGoForward}
-            onPress={() => guardedNavigate(() => onChangeDate(addDays(date, 1)))}
+            onPress={guarded(() => onChangeDate(addDays(date, 1)))}
             hitSlop={12}
+            style={[styles.iconBtn, !canGoForward && { opacity: 0.3 }]}
+            accessibilityLabel="Next day"
           >
-            <Text style={[styles.arrow, !canGoForward && { opacity: 0.25 }]}>›</Text>
+            <Icon name="chevronRight" size={20} color={colors.muted} />
           </Pressable>
         </View>
       </View>
+
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.kicker}>{isToday ? 'Today' : ' '}</Text>
-        <Text style={styles.date}>{formatLong(date)}</Text>
+        <Text style={styles.title}>{isToday ? 'Today' : weekday}</Text>
+        <Text style={styles.subtitle}>{formatLong(date)}</Text>
 
-        {!loaded ? null : (
-        <>
-        {done ? (
-          <View style={styles.doneBox}>
-            <Text style={styles.doneText}>✓ {isToday ? "You're done for today" : 'This day is complete'}</Text>
-          </View>
-        ) : null}
+        {!loaded || !entry || !prog ? null : (
+          <>
+            {done ? (
+              <View style={styles.doneBanner}>
+                <Icon name="check" size={18} color={colors.success} strokeWidth={2.5} />
+                <Text style={styles.doneText}>{isToday ? "You're done for today" : 'This day is complete'}</Text>
+              </View>
+            ) : null}
 
-        <Card title="☀️ Your day">{renderMemoSection('day')}</Card>
+            <View style={styles.segment}>
+              {(
+                [
+                  { key: 'day', label: 'Day', icon: 'sun', n: prog.day, total: prog.dayTotal, accent: colors.primary },
+                  { key: 'night', label: 'Night', icon: 'moon', n: prog.night, total: prog.nightTotal, accent: colors.dream },
+                ] as const
+              ).map((s) => {
+                const on = part === s.key;
+                const complete = s.n === s.total;
+                return (
+                  <Pressable key={s.key} onPress={guarded(() => setPart(s.key))} style={[styles.segBtn, on && styles.segOn]}>
+                    <Icon name={s.icon} size={18} color={on ? s.accent : colors.muted} />
+                    <Text style={[styles.segText, on && { color: colors.text }]}>{s.label}</Text>
+                    <View style={[styles.badge, complete && { backgroundColor: colors.successSoft }]}>
+                      <Text style={[styles.badgeText, complete && { color: colors.success }]}>
+                        {complete ? '✓' : `${s.n}/${s.total}`}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-        <Card title="Daily Survey">
-          {entry ? (
-            <>
-              <ScaleInput question={DAY_SCALES.rating} value={entry.rating} onChange={(v) => update('rating', v)} />
-              <SocialInput
-                social={entry.social}
-                withWho={entry.social_with}
-                note={entry.social_note}
-                onSocial={(v) => update('social', v)}
-                onWith={(v) => update('social_with', v)}
-                onNote={(v) => update('social_note', v)}
-              />
-              <ScaleInput question={DAY_SCALES.growth} value={entry.growth} onChange={(v) => update('growth', v)} />
-            </>
-          ) : null}
-        </Card>
-
-        <Card title="🌙 Sleep & Dreams" style={{ backgroundColor: colors.dreamSoft }}>
-          <Text style={styles.nightHint}>About last night (the night before this day)</Text>
-          {entry ? (
-            <>
-              <HoursStepper
-                value={entry.sleep_hours}
-                suggestion={sleepSuggestion}
-                onChange={(v) => update('sleep_hours', v)}
-              />
-              <ScaleInput
-                question={SLEEP_SCALES.dream_vibe}
-                value={entry.dream_vibe}
-                onChange={(v) => update('dream_vibe', v)}
-              />
-              <ScaleInput question={SLEEP_SCALES.rested} value={entry.rested} onChange={(v) => update('rested', v)} />
-            </>
-          ) : null}
-          <Text style={styles.subTitle}>Dream journal</Text>
-          {renderMemoSection('dream')}
-        </Card>
-        </>
+            {part === 'day' ? (
+              <>
+                <Card title="Voice memo">{renderMemos('day')}</Card>
+                <Card title="Daily Survey">
+                  <ScaleInput question={DAY_SCALES.rating} value={entry.rating} onChange={(v) => update('rating', v)} />
+                  <SocialInput
+                    social={entry.social}
+                    withWho={entry.social_with}
+                    note={entry.social_note}
+                    onSocial={(v) => update('social', v)}
+                    onWith={(v) => update('social_with', v)}
+                    onNote={(v) => update('social_note', v)}
+                  />
+                  <ScaleInput question={DAY_SCALES.growth} value={entry.growth} onChange={(v) => update('growth', v)} />
+                </Card>
+              </>
+            ) : (
+              <>
+                <Card title="Last night">
+                  <HoursStepper
+                    value={entry.sleep_hours}
+                    suggestion={sleepSuggestion}
+                    onChange={(v) => update('sleep_hours', v)}
+                  />
+                  <ScaleInput
+                    question={SLEEP_SCALES.dream_vibe}
+                    value={entry.dream_vibe}
+                    onChange={(v) => update('dream_vibe', v)}
+                  />
+                  <ScaleInput question={SLEEP_SCALES.rested} value={entry.rested} onChange={(v) => update('rested', v)} />
+                </Card>
+                <Card title="Dream journal">{renderMemos('dream')}</Card>
+              </>
+            )}
+          </>
         )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  back: { fontSize: 18, color: colors.primary, fontWeight: '600' },
-  dayNav: { flexDirection: 'row', gap: 28 },
-  arrow: { fontSize: 30, color: colors.primary, lineHeight: 32 },
-  content: { padding: 16, paddingTop: 0, paddingBottom: 48 },
-  kicker: { color: colors.primary, fontWeight: '700', textTransform: 'uppercase', fontSize: 12 },
-  date: { fontSize: 24, fontWeight: '800', color: colors.text, marginBottom: 16 },
-  doneBox: {
-    backgroundColor: colors.successSoft,
-    borderColor: colors.success,
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
-  },
-  doneText: { color: colors.success, fontWeight: '800', fontSize: 16 },
-  empty: { color: colors.muted, marginBottom: 12 },
-  nightHint: { color: colors.muted, fontSize: 12, marginTop: -6, marginBottom: 14 },
-  subTitle: { fontSize: 15, fontWeight: '700', color: colors.dream, marginTop: 4, marginBottom: 4 },
-  recordBtn: {
-    marginTop: 8,
-    height: 56,
-    borderRadius: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  recDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#fff' },
-  stopIcon: { width: 14, height: 14, borderRadius: 2, backgroundColor: '#fff' },
-  recordText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-});
+const useStyles = makeStyles((c) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: c.bg },
+    topBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    iconBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.card,
+    },
+    dayNav: { flexDirection: 'row', gap: 10 },
+    content: { padding: 16, paddingTop: 4, paddingBottom: 48 },
+    title: { fontSize: 32, fontWeight: '800', color: c.text },
+    subtitle: { fontSize: 15, color: c.muted, marginTop: 2, marginBottom: 18 },
+    doneBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: c.successSoft,
+      borderRadius: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      marginBottom: 14,
+    },
+    doneText: { color: c.success, fontWeight: '700', fontSize: 15 },
+    segment: {
+      flexDirection: 'row',
+      backgroundColor: c.card,
+      borderRadius: 16,
+      padding: 4,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    segBtn: {
+      flex: 1,
+      height: 44,
+      borderRadius: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    segOn: { backgroundColor: c.cardAlt },
+    segText: { fontWeight: '700', color: c.muted, fontSize: 15 },
+    badge: { backgroundColor: c.border, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 1 },
+    badgeText: { fontSize: 11, fontWeight: '700', color: c.muted },
+    empty: { color: c.muted, marginBottom: 12 },
+    recordBtn: {
+      marginTop: 6,
+      height: 54,
+      borderRadius: 27,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    stopIcon: { width: 14, height: 14, borderRadius: 3, backgroundColor: '#fff' },
+    recordText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  }),
+);

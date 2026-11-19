@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SOCIAL_LABEL, SOCIAL_WITH } from '../questions';
-import { colors } from '../theme';
-import { surveyStyles } from './ScaleInput';
+import { makeStyles, useColors } from '../theme';
+import { QuestionLabel } from './ScaleInput';
 
 interface Props {
   social: number | null;
@@ -14,6 +14,8 @@ interface Props {
 }
 
 export function SocialInput({ social, withWho, note, onSocial, onWith, onNote }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const selected = withWho ? withWho.split(',').filter(Boolean) : [];
   const [text, setText] = useState(note ?? '');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,9 +45,9 @@ export function SocialInput({ social, withWho, note, onSocial, onWith, onNote }:
   };
 
   return (
-    <View style={{ marginBottom: 18 }}>
-      <Text style={surveyStyles.label}>{SOCIAL_LABEL}</Text>
-      <View style={styles.row}>
+    <View style={{ marginBottom: 22 }}>
+      <QuestionLabel>{SOCIAL_LABEL}</QuestionLabel>
+      <View style={styles.track}>
         {[
           { v: 0, label: 'No' },
           { v: 1, label: 'Yes' },
@@ -53,31 +55,29 @@ export function SocialInput({ social, withWho, note, onSocial, onWith, onNote }:
           <Pressable
             key={o.v}
             onPress={() => onSocial(social === o.v ? null : o.v)}
-            style={[styles.yn, social === o.v && styles.ynSelected]}
+            style={[styles.yn, social === o.v && { backgroundColor: colors.primary }]}
           >
-            <Text style={[styles.ynText, social === o.v && { color: '#fff' }]}>{o.label}</Text>
+            <Text style={[styles.ynText, social === o.v && { color: colors.onPrimary }]}>{o.label}</Text>
           </Pressable>
         ))}
       </View>
       {social === 1 ? (
-        <View style={{ marginTop: 12 }}>
-          <Text style={styles.sub}>With whom?</Text>
+        <View style={{ marginTop: 14 }}>
           <View style={styles.chips}>
-            {SOCIAL_WITH.map((w) => (
-              <Pressable
-                key={w}
-                onPress={() => toggleWho(w)}
-                style={[styles.chip, selected.includes(w) && styles.chipSelected]}
-              >
-                <Text style={[styles.chipText, selected.includes(w) && { color: '#fff' }]}>{w}</Text>
-              </Pressable>
-            ))}
+            {SOCIAL_WITH.map((w) => {
+              const on = selected.includes(w);
+              return (
+                <Pressable key={w} onPress={() => toggleWho(w)} style={[styles.chip, on && styles.chipOn]}>
+                  <Text style={[styles.chipText, on && { color: colors.primary }]}>{w}</Text>
+                </Pressable>
+              );
+            })}
           </View>
           <TextInput
             value={text}
             onChangeText={changeText}
             placeholder="What did you do? (optional)"
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={colors.faint}
             style={styles.input}
             multiline
           />
@@ -87,42 +87,39 @@ export function SocialInput({ social, withWho, note, onSocial, onWith, onNote }:
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 10 },
-  yn: {
-    flex: 1,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  ynSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
-  ynText: { fontWeight: '700', color: colors.text, fontSize: 15 },
-  sub: { color: colors.muted, fontSize: 12, fontWeight: '700', marginBottom: 6 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: '#fff',
-  },
-  chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { color: colors.text, fontWeight: '600' },
-  input: {
-    marginTop: 10,
-    minHeight: 44,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: colors.text,
-    backgroundColor: '#fff',
-    fontSize: 15,
-  },
-});
+const useStyles = makeStyles((c) =>
+  StyleSheet.create({
+    track: {
+      flexDirection: 'row',
+      backgroundColor: c.cardAlt,
+      borderRadius: 14,
+      padding: 3,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    yn: { flex: 1, height: 40, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+    ynText: { fontWeight: '700', color: c.muted, fontSize: 15 },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    chipOn: { backgroundColor: c.primarySoft, borderColor: c.primary },
+    chipText: { color: c.muted, fontWeight: '600' },
+    input: {
+      marginTop: 12,
+      minHeight: 46,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      color: c.text,
+      backgroundColor: c.cardAlt,
+      borderWidth: 1,
+      borderColor: c.border,
+      fontSize: 15,
+    },
+  }),
+);

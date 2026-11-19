@@ -107,6 +107,13 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
     `);
     version = 2;
   }
+  if (version < 3) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY NOT NULL, value TEXT);
+      PRAGMA user_version = 3;
+    `);
+    version = 3;
+  }
   await db.execAsync(`PRAGMA user_version = ${version}`);
 }
 
@@ -196,6 +203,19 @@ export async function listEntries(db: SQLiteDatabase): Promise<EntrySummary[]> {
 /** All survey rows, oldest first. */
 export async function allAnswers(db: SQLiteDatabase): Promise<Entry[]> {
   return db.getAllAsync<Entry>(`SELECT ${SELECT_FIELDS} FROM entries WHERE ${ANY_ANSWER} ORDER BY date`);
+}
+
+export async function getSetting(db: SQLiteDatabase, key: string): Promise<string | null> {
+  const row = await db.getFirstAsync<{ value: string | null }>('SELECT value FROM settings WHERE key = ?', key);
+  return row?.value ?? null;
+}
+
+export async function setSetting(db: SQLiteDatabase, key: string, value: string): Promise<void> {
+  await db.runAsync(
+    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    key,
+    value,
+  );
 }
 
 /** Insert or overwrite a whole entry (used by backup import). */

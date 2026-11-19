@@ -2,15 +2,18 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/Card';
+import { Icon } from '../components/Icon';
 import { formatHours } from '../components/HoursStepper';
 import { useDataVersion } from '../dataVersion';
 import { addDays, daysInMonth, MONTHS, toKey, todayKey, WEEKDAYS_SHORT, weekdayMon } from '../dates';
 import { isDayDone, listEntries, type EntrySummary } from '../db';
 import { scoreColor } from '../questions';
 import { mean } from '../stats';
-import { colors } from '../theme';
+import { makeStyles, useColors } from '../theme';
 
 export function CalendarScreen({ onOpen }: { onOpen: (date: string) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const db = useSQLiteContext();
   const { version } = useDataVersion();
   const now = new Date();
@@ -71,13 +74,13 @@ export function CalendarScreen({ onOpen }: { onOpen: (date: string) => void }) {
       <Card>
         <View style={styles.monthNav}>
           <Pressable onPress={() => shift(-1)} hitSlop={12}>
-            <Text style={styles.arrow}>‹</Text>
+            <Icon name="chevronLeft" size={22} color={colors.primary} />
           </Pressable>
           <Text style={styles.monthTitle}>
             {MONTHS[month]} {year}
           </Text>
           <Pressable onPress={() => shift(1)} hitSlop={12} disabled={isCurrentMonth}>
-            <Text style={[styles.arrow, isCurrentMonth && { opacity: 0.25 }]}>›</Text>
+            <View style={isCurrentMonth && { opacity: 0.25 }}><Icon name="chevronRight" size={22} color={colors.primary} /></View>
           </Pressable>
         </View>
         <View style={styles.grid}>
@@ -103,7 +106,7 @@ export function CalendarScreen({ onOpen }: { onOpen: (date: string) => void }) {
                   <Text
                     style={[
                       styles.dayText,
-                      future && { color: colors.border },
+                      future && { color: colors.faint },
                       e?.rating != null && { color: '#fff', fontWeight: '800' },
                     ]}
                   >
@@ -138,6 +141,8 @@ export function CalendarScreen({ onOpen }: { onOpen: (date: string) => void }) {
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.stat}>
       <Text style={styles.statValue}>{value}</Text>
@@ -146,9 +151,9 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => StyleSheet.create({
   content: { padding: 16, paddingBottom: 32 },
-  h1: { fontSize: 30, fontWeight: '800', color: colors.text, marginBottom: 16 },
+  h1: { fontSize: 30, fontWeight: '800', color: colors.text, marginBottom: 18, marginTop: 4 },
   monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   arrow: { fontSize: 30, color: colors.primary, paddingHorizontal: 8 },
   monthTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
@@ -160,6 +165,6 @@ const styles = StyleSheet.create({
   dayText: { color: colors.text, fontWeight: '500' },
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 14 },
   stat: { width: '50%' },
-  statValue: { fontSize: 20, fontWeight: '800', color: colors.text },
+  statValue: { fontSize: 22, fontWeight: '800', color: colors.text },
   statLabel: { fontSize: 12, color: colors.muted },
-});
+}));

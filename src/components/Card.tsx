@@ -1,27 +1,55 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import { colors, radius } from '../theme';
+import { makeStyles, radius, shadow } from '../theme';
 
-export function Card({ title, children, style }: { title?: string; children: ReactNode; style?: ViewStyle }) {
+interface Props {
+  title?: string;
+  right?: ReactNode;
+  children: ReactNode;
+  style?: ViewStyle | (ViewStyle | false | undefined)[];
+}
+
+export function Card({ title, right, children, style }: Props) {
+  const styles = useStyles();
   return (
     <View style={[styles.card, style]}>
-      {title ? <Text style={styles.title}>{title}</Text> : null}
+      {title || right ? (
+        <View style={styles.header}>
+          {title ? <Text style={styles.title}>{title}</Text> : <View />}
+          {right}
+        </View>
+      ) : null}
       {children}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radius,
-    padding: 16,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
-  },
-  title: { fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 12 },
-});
+/** Small uppercase heading used above groups of content. */
+export function SectionLabel({ children }: { children: ReactNode }) {
+  const styles = useStyles();
+  return <Text style={styles.section}>{children}</Text>;
+}
+
+const useStyles = makeStyles((c) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: c.card,
+      borderRadius: radius,
+      padding: 18,
+      marginBottom: 14,
+      ...shadow(c),
+    },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+    title: { fontSize: 13, fontWeight: '700', color: c.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
+    section: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: c.muted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+      marginTop: 8,
+      marginBottom: 10,
+      marginLeft: 4,
+    },
+  }),
+);

@@ -1,9 +1,10 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { formatDuration } from '../dates';
 import type { Memo } from '../db';
 import { memoUri } from '../memoFiles';
-import { colors } from '../theme';
+import { makeStyles, useColors } from '../theme';
 
 interface Props {
   memo: Memo;
@@ -13,6 +14,8 @@ interface Props {
 }
 
 export function MemoPlayer({ memo, index, accent, onDelete }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const player = useAudioPlayer(memoUri(memo.file));
   const status = useAudioPlayerStatus(player);
 
@@ -42,10 +45,7 @@ export function MemoPlayer({ memo, index, accent, onDelete }: Props) {
       },
     ]);
 
-  const time = new Date(memo.created_at).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  const time = new Date(memo.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
   return (
     <View style={styles.row}>
@@ -54,34 +54,55 @@ export function MemoPlayer({ memo, index, accent, onDelete }: Props) {
         style={[styles.play, { backgroundColor: accent }]}
         accessibilityLabel={status.playing ? 'Pause memo' : 'Play memo'}
       >
-        <Text style={styles.playIcon}>{status.playing ? '❚❚' : '▶'}</Text>
+        <Svg width={16} height={16} viewBox="0 0 16 16">
+          {status.playing ? (
+            <>
+              <Rect x="3" y="2" width="3.5" height="12" rx="1" fill="#fff" />
+              <Rect x="9.5" y="2" width="3.5" height="12" rx="1" fill="#fff" />
+            </>
+          ) : (
+            <Path d="M4 2.5v11a1 1 0 0 0 1.5.86l9-5.5a1 1 0 0 0 0-1.72l-9-5.5A1 1 0 0 0 4 2.5z" fill="#fff" />
+          )}
+        </Svg>
       </Pressable>
       <View style={styles.middle}>
-        <Text style={styles.title}>
-          Memo {index + 1} <Text style={styles.time}>· {time}</Text>
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Memo {index + 1}</Text>
+          <Text style={styles.time}>
+            {status.playing || status.currentTime > 0
+              ? `${formatDuration(status.currentTime * 1000)} / ${formatDuration(durationS * 1000)}`
+              : `${formatDuration(durationS * 1000)} · ${time}`}
+          </Text>
+        </View>
         <View style={styles.track}>
           <View style={[styles.fill, { width: `${progress * 100}%`, backgroundColor: accent }]} />
         </View>
-        <Text style={styles.time}>
-          {formatDuration(status.currentTime * 1000)} / {formatDuration(durationS * 1000)}
-        </Text>
       </View>
-      <Pressable onPress={confirmDelete} hitSlop={10} accessibilityLabel="Delete memo">
-        <Text style={styles.delete}>✕</Text>
+      <Pressable onPress={confirmDelete} hitSlop={12} accessibilityLabel="Delete memo">
+        <Text style={[styles.delete, { color: colors.faint }]}>✕</Text>
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 12 },
-  play: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  playIcon: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  middle: { flex: 1, gap: 4 },
-  title: { color: colors.text, fontWeight: '600' },
-  time: { color: colors.muted, fontSize: 12, fontWeight: '400' },
-  track: { height: 4, borderRadius: 2, backgroundColor: colors.border, overflow: 'hidden' },
-  fill: { height: 4 },
-  delete: { color: colors.muted, fontSize: 18, paddingHorizontal: 4 },
-});
+const useStyles = makeStyles((c) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: c.cardAlt,
+      borderRadius: 16,
+      padding: 10,
+      marginBottom: 8,
+    },
+    play: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+    middle: { flex: 1, gap: 8 },
+    titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+    title: { color: c.text, fontWeight: '600' },
+    time: { color: c.muted, fontSize: 12 },
+    track: { height: 4, borderRadius: 2, backgroundColor: c.border, overflow: 'hidden' },
+    fill: { height: 4 },
+    delete: { fontSize: 16, paddingHorizontal: 4 },
+  }),
+);

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SLEEP_HOURS_LABEL, SLEEP_MAX, SLEEP_MIN } from '../questions';
-import { colors } from '../theme';
-import { surveyStyles } from './ScaleInput';
+import { makeStyles, useColors } from '../theme';
+import { QuestionLabel } from './ScaleInput';
 
 interface Props {
   value: number | null;
@@ -18,6 +18,8 @@ export function formatHours(v: number): string {
 }
 
 export function HoursStepper({ value, suggestion, onChange }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
   const base = value ?? suggestion ?? 8;
@@ -32,8 +34,8 @@ export function HoursStepper({ value, suggestion, onChange }: Props) {
   };
 
   return (
-    <View style={{ marginBottom: 18 }}>
-      <Text style={surveyStyles.label}>{SLEEP_HOURS_LABEL}</Text>
+    <View style={{ marginBottom: 22 }}>
+      <QuestionLabel>{SLEEP_HOURS_LABEL}</QuestionLabel>
       <View style={styles.row}>
         <Pressable style={styles.btn} onPress={() => step(-0.5)} accessibilityLabel="Less sleep">
           <Text style={styles.btnText}>−</Text>
@@ -56,8 +58,9 @@ export function HoursStepper({ value, suggestion, onChange }: Props) {
               setEditing(true);
             }}
           >
-            <Text style={[styles.value, value == null && { color: colors.muted }]}>
-              {value != null ? `${formatHours(value)} h` : `${formatHours(base)} h?`}
+            <Text style={[styles.value, value == null && { color: colors.faint }]}>
+              {formatHours(value ?? base)}
+              <Text style={styles.unit}> h</Text>
             </Text>
           </Pressable>
         )}
@@ -65,25 +68,35 @@ export function HoursStepper({ value, suggestion, onChange }: Props) {
           <Text style={styles.btnText}>+</Text>
         </Pressable>
       </View>
-      <Text style={styles.hint}>
-        {value == null ? 'Tap − or + to start (or tap the number to type it)' : 'Tap the number to type it'}
-      </Text>
+      {value == null ? <Text style={styles.hint}>Tap − or + to set, or tap the number to type</Text> : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  btn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.dream,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnText: { color: '#fff', fontSize: 28, fontWeight: '700', lineHeight: 32 },
-  value: { flex: 1, textAlign: 'center', fontSize: 28, fontWeight: '800', color: colors.text },
-  input: { borderBottomWidth: 2, borderBottomColor: colors.dream, paddingVertical: 2 },
-  hint: { color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: 6 },
-});
+const useStyles = makeStyles((c) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: c.cardAlt,
+      borderRadius: 18,
+      padding: 6,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    btn: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: c.dreamSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    btnText: { color: c.dream, fontSize: 26, fontWeight: '700', lineHeight: 30 },
+    value: { flex: 1, textAlign: 'center', fontSize: 28, fontWeight: '800', color: c.text },
+    unit: { fontSize: 16, fontWeight: '600', color: c.muted },
+    input: { borderBottomWidth: 2, borderBottomColor: c.dream, paddingVertical: 2 },
+    hint: { color: c.faint, fontSize: 12, textAlign: 'center', marginTop: 6 },
+  }),
+);
