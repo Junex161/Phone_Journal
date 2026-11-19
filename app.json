@@ -2,14 +2,14 @@
   "expo": {
     "name": "Journal",
     "slug": "phone-journal",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.junex161.journal",
-      "buildNumber": "2"
+      "buildNumber": "3"
     },
     "android": {
       "package": "com.junex161.journal",
@@ -20,7 +20,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "favicon": "./assets/favicon.png"

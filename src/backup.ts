@@ -61,6 +61,8 @@ export async function exportBackup(db: SQLiteDatabase): Promise<{ entries: numbe
     memos: memos.map(({ id: _id, ...rest }) => rest),
   };
   files['journal.json'] = strToU8(JSON.stringify(json, null, 2));
+  files['survey.csv'] = strToU8(buildCsv(entries, memos));
+  files['README.txt'] = strToU8(CSV_README);
   const zipped = zipSync(files);
 
   const out = new File(Paths.cache, `journal-backup-${todayKey()}.zip`);
@@ -69,6 +71,91 @@ export async function exportBackup(db: SQLiteDatabase): Promise<{ entries: numbe
   out.write(zipped);
   await share(out.uri, 'application/zip', 'Save journal backup');
   return { entries: entries.length, memos: memos.length - missing, missing };
+}
+
+// ---------------------------------------------------------------- CSV (one row per day)
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const CSV_README = `Journal backup
+==============
+
+journal.json  Full backup (all answers + memo list). Use "Import backup" in the app to restore.
+memos/        The voice memos (.m4a).
+survey.csv    Survey answers, one row per day (comma-separated, UTF-8, missing values = NA).
+
+survey.csv columns
+------------------
+date                 YYYY-MM-DD
+weekday              Monday ... Sunday
+day_rating           How was your day? (1-10)
+social               Did you do something social today? (1 = yes, 0 = no)
+social_with          With whom (separated by ";")
+social_note          Free-text note
+growth               How much did you learn or grow today? (1-10)
+sleep_hours          How much did you sleep? (hours, the night before this date)
+dream_vibe           How was the vibe of your dream(s)? (1-10, the night before this date)
+rested               How rested did you feel when you woke up? (1-10)
+day_memos            Number of day voice memos
+dream_memos          Number of dream voice memos
+day_memo_seconds     Total length of day memos
+dream_memo_seconds   Total length of dream memos
+complete             1 = day memo + all day questions answered
+
+In R:  d <- read.csv("survey.csv"); d$date <- as.Date(d$date)
+`;
+
+function csvCell(v: string | number | null | undefined): string {
+  if (v == null || v === '') return 'NA';
+  if (typeof v === 'number') return String(v);
+  return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+}
+
+export function buildCsv(entries: Entry[], memos: Memo[]): string {
+  const byDate = new Map(entries.map((e) => [e.date, e]));
+  const memoStats = new Map<string, { day: number; dream: number; dayS: number; dreamS: number }>();
+  for (const m of memos) {
+    const s = memoStats.get(m.date) ?? { day: 0, dream: 0, dayS: 0, dreamS: 0 };
+    if (m.kind === 'dream') {
+      s.dream++;
+      s.dreamS += m.duration_ms / 1000;
+    } else {
+      s.day++;
+      s.dayS += m.duration_ms / 1000;
+    }
+    memoStats.set(m.date, s);
+  }
+  const dates = [...new Set([...byDate.keys(), ...memoStats.keys()])].sort();
+  const header = [
+    'date', 'weekday', 'day_rating', 'social', 'social_with', 'social_note', 'growth',
+    'sleep_hours', 'dream_vibe', 'rested', 'day_memos', 'dream_memos', 'day_memo_seconds',
+    'dream_memo_seconds', 'complete',
+  ];
+  const lines = dates.map((d) => {
+    const e = byDate.get(d);
+    const s = memoStats.get(d) ?? { day: 0, dream: 0, dayS: 0, dreamS: 0 };
+    const complete = e && s.day > 0 && e.rating != null && e.growth != null && e.social != null ? 1 : 0;
+    return [
+      d,
+      WEEKDAYS[new Date(`${d}T12:00:00`).getDay()],
+      e?.rating,
+      e?.social,
+      e?.social_with ? e.social_with.split(',').join(';') : null,
+      e?.social_note,
+      e?.growth,
+      e?.sleep_hours,
+      e?.dream_vibe,
+      e?.rested,
+      s.day,
+      s.dream,
+      Math.round(s.dayS),
+      Math.round(s.dreamS),
+      complete,
+    ]
+      .map(csvCell)
+      .join(',');
+  });
+  return [header.join(','), ...lines].join('\n') + '\n';
 }
 
 export interface ImportResult {

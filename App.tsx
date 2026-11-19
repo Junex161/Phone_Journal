@@ -11,6 +11,7 @@ import { ListScreen } from './src/screens/ListScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { BackupScreen } from './src/screens/BackupScreen';
 import { recordingGuard } from './src/recordingGuard';
+import { SwipeTabs } from './src/components/SwipeTabs';
 import { colors } from './src/theme';
 
 type Tab = 'list' | 'calendar' | 'stats' | 'backup';
@@ -65,11 +66,17 @@ function Main() {
         <EntryScreen key={openDate} date={openDate} onChangeDate={setOpenDate} onClose={() => setOpenDate(null)} />
       ) : (
         <>
-          <View style={{ flex: 1 }}>
-            {tab === 'list' && <ListScreen onOpen={setOpenDate} />}
-            {tab === 'calendar' && <CalendarScreen onOpen={setOpenDate} />}
-            {tab === 'stats' && <StatsScreen />}
-            {tab === 'backup' && <BackupScreen />}
+          <View style={{ flex: 1, overflow: 'hidden' }}>
+            <SwipeTabs
+              index={TABS.findIndex((t) => t.key === tab)}
+              count={TABS.length}
+              onChange={(i) => setTab(TABS[i].key)}
+            >
+              {tab === 'list' && <ListScreen onOpen={setOpenDate} />}
+              {tab === 'calendar' && <CalendarScreen onOpen={setOpenDate} />}
+              {tab === 'stats' && <StatsScreen />}
+              {tab === 'backup' && <BackupScreen />}
+            </SwipeTabs>
           </View>
           <View style={styles.tabBar}>
             {TABS.map((t) => (

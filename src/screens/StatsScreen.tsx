@@ -40,6 +40,7 @@ export function StatsScreen() {
   const [monthB, setMonthB] = useState<MonthId | null>(null);
   const [corrX, setCorrX] = useState<MetricKey>('dream_vibe');
   const [corrY, setCorrY] = useState<MetricKey>('rating');
+  const [chartView, setChartView] = useState<'days' | 'months'>('days');
 
   useEffect(() => {
     allAnswers(db).then(setRows);
@@ -82,11 +83,6 @@ export function StatsScreen() {
     (best, g, i) => (g.length && (best == null || mean(g) > mean(yearMonths[best])) ? i : best),
     null,
   );
-  const socialRows = rows.filter((r) => r.date.startsWith(`${year}-`) && r.social != null);
-  const socialPct = socialRows.length
-    ? Math.round((100 * socialRows.filter((r) => r.social === 1).length) / socialRows.length)
-    : null;
-
   const test =
     monthA != null && monthB != null && monthA !== monthB
       ? welchTTest(byMonth.get(monthA) ?? [], byMonth.get(monthB) ?? [])
@@ -140,38 +136,54 @@ export function StatsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.h1}>Statistics</Text>
-
-      <View style={styles.yearNav}>
-        <Pressable onPress={() => setYear(year - 1)} hitSlop={12} disabled={year <= firstYear}>
-          <Text style={[styles.arrow, year <= firstYear && { opacity: 0.25 }]}>‹</Text>
-        </Pressable>
-        <Text style={styles.year}>{year}</Text>
-        <Pressable onPress={() => setYear(year + 1)} hitSlop={12} disabled={year >= thisYear}>
-          <Text style={[styles.arrow, year >= thisYear && { opacity: 0.25 }]}>›</Text>
-        </Pressable>
+      <View style={styles.headerRow}>
+        <Text style={styles.h1}>Statistics</Text>
+        <View style={styles.yearNav}>
+          <Pressable onPress={() => setYear(year - 1)} hitSlop={12} disabled={year <= firstYear}>
+            <Text style={[styles.arrow, year <= firstYear && { opacity: 0.25 }]}>‹</Text>
+          </Pressable>
+          <Text style={styles.year}>{year}</Text>
+          <Pressable onPress={() => setYear(year + 1)} hitSlop={12} disabled={year >= thisYear}>
+            <Text style={[styles.arrow, year >= thisYear && { opacity: 0.25 }]}>›</Text>
+          </Pressable>
+        </View>
       </View>
 
       <MetricChips value={metricKey} onChange={setMetricKey} />
+      <View style={[styles.questionBox, { borderLeftColor: metric.color }]}>
+        <Text style={styles.question}>"{metric.question}"</Text>
+        <Text style={styles.questionScale}>
+          {metric.unit ? `${metric.min}–${metric.max} hours` : `Scale ${metric.min}–${metric.max}`}
+        </Text>
+      </View>
 
       <View style={styles.tiles}>
-        <Tile label="Check-ins" value={String(points.length)} />
-        <Tile label="Year average" value={yearAvg != null ? fmtVal(metric, yearAvg) : '–'} />
-      </View>
-      <View style={styles.tiles}>
-        <Tile label="Best month" value={bestMonthIdx != null ? MONTHS[bestMonthIdx] : '–'} />
-        <Tile label="Social days" value={socialPct != null ? `${socialPct} %` : '–'} />
+        <Tile label="Answers" value={String(points.length)} />
+        <Tile label="Average" value={yearAvg != null ? fmtVal(metric, yearAvg) : '–'} />
+        <Tile label="Best month" value={bestMonthIdx != null ? `${MONTHS[bestMonthIdx]} ${year}` : '–'} />
       </View>
 
       {points.length === 0 ? (
         <Card>
-          <Text style={styles.muted}>
-            No "{metric.long}" answers in {year} yet. Fill in the Daily Survey to see your progress here.
-          </Text>
+          <Text style={styles.muted}>No answers in {year} yet.</Text>
         </Card>
       ) : (
-        <>
-          <Card title={`${metric.long} in ${year}`}>
+        <Card>
+          <View style={styles.segment}>
+            {(['days', 'months'] as const).map((v) => (
+              <Pressable
+                key={v}
+                onPress={() => setChartView(v)}
+                style={[styles.segmentBtn, chartView === v && styles.segmentActive]}
+              >
+                <Text style={[styles.segmentText, chartView === v && { color: colors.text }]}>
+                  {v === 'days' ? 'Day by day' : 'Monthly average'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {chartView === 'days' ? (
+          <>
             <Svg width={chartW} height={CHART_H}>
               {grid(metric, y)}
               {points.map((p) => (
@@ -180,10 +192,10 @@ export function StatsScreen() {
               {points.length > 1 ? <Path d={maPath} stroke={metric.color} strokeWidth={2.5} fill="none" /> : null}
               {monthLabels((m) => xDay(dayOfYear(`${year}-${String(m + 1).padStart(2, '0')}-15`)))}
             </Svg>
-            <Text style={styles.caption}>Dots = single days, line = 7-entry moving average.</Text>
-          </Card>
-
-          <Card title={`Monthly average ${year}`}>
+            <Text style={styles.caption}>Dots = single days, line = 7-entry average.</Text>
+          </>
+          ) : (
+          <>
             <Svg width={chartW} height={CHART_H}>
               {grid(metric, y)}
               {yearMonths.map((g, i) => {
@@ -220,16 +232,16 @@ export function StatsScreen() {
               })}
               {monthLabels((m) => PAD_L + barSlot * m + barSlot / 2)}
             </Svg>
-            <Text style={styles.caption}>Whiskers = ± standard error. Highlighted = months being compared.</Text>
-          </Card>
-        </>
+            <Text style={styles.caption}>Whiskers = ± standard error.</Text>
+          </>
+          )}
+        </Card>
       )}
 
       {monthsWithData.length > 0 ? (
         <Card title="Compare two months">
-          <Text style={styles.caption}>Any two months, also across years.</Text>
-          <MonthPicker label="Month A" value={monthA} months={monthsWithData} onChange={setMonthA} />
-          <MonthPicker label="Month B" value={monthB} months={monthsWithData} onChange={setMonthB} />
+          <MonthPicker label="A" value={monthA} months={monthsWithData} onChange={setMonthA} />
+          <MonthPicker label="B" value={monthB} months={monthsWithData} onChange={setMonthB} />
           <ComparisonResult
             metric={metric}
             test={test}
@@ -241,11 +253,15 @@ export function StatsScreen() {
         </Card>
       ) : null}
 
-      <Card title="Correlation (all time)">
-        <Text style={styles.pickerLabel}>Horizontal</Text>
-        <MetricChips value={corrX} onChange={setCorrX} small />
-        <Text style={styles.pickerLabel}>Vertical</Text>
-        <MetricChips value={corrY} onChange={setCorrY} small />
+      <Card title="Correlation (all years)">
+        <View style={styles.inlinePicker}>
+          <Text style={styles.inlineLabel}>→</Text>
+          <MetricChips value={corrX} onChange={setCorrX} small />
+        </View>
+        <View style={styles.inlinePicker}>
+          <Text style={styles.inlineLabel}>↑</Text>
+          <MetricChips value={corrY} onChange={setCorrY} small />
+        </View>
         {corrX === corrY ? (
           <Text style={styles.muted}>Pick two different questions.</Text>
         ) : pairs.length < 3 ? (
@@ -284,8 +300,7 @@ export function StatsScreen() {
                     : `Not significant: ${describeR(corr.r)} so far (${pText(corr.p)}).`}
                 </Text>
                 <Text style={styles.caption}>
-                  Pearson correlation over {corr.n} days, t = {corr.t.toFixed(2)}, df = {corr.df}. Both answers are
-                  from the same entry, so the dream of the night before is compared with that day.
+                  Pearson, {corr.n} days, t = {corr.t.toFixed(2)}, df = {corr.df}.
                 </Text>
               </View>
             ) : (
@@ -308,7 +323,7 @@ function MetricChips({
   small?: boolean;
 }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: small ? 8 : 14 }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: small ? 6 : 10, flexGrow: 0, flexShrink: 1 }}>
       {METRICS.map((m) => (
         <Pressable
           key={m.key}
@@ -349,9 +364,9 @@ function MonthPicker({
   onChange: (m: MonthId) => void;
 }) {
   return (
-    <View style={{ marginBottom: 10 }}>
-      <Text style={styles.pickerLabel}>{label}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+    <View style={[styles.inlinePicker, { marginBottom: 8 }]}>
+      <Text style={[styles.inlineLabel, { marginBottom: 0 }]}>{label}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexShrink: 1 }}>
         {months.map((m) => (
           <Pressable
             key={m}
@@ -415,8 +430,7 @@ function ComparisonResult({
           : `No significant difference (${pText(test.p)}).`}
       </Text>
       <Text style={styles.caption}>
-        Welch's t-test: t = {test.t.toFixed(2)}, df = {test.df.toFixed(1)}, Cohen's d = {test.d.toFixed(2)}.
-        {'\n'}Significant means p {'<'} 0.05. With few answers per month, treat results as a rough hint.
+        Welch's t-test: t = {test.t.toFixed(2)}, df = {test.df.toFixed(1)}, d = {test.d.toFixed(2)}. Significant = p {'<'} 0.05.
       </Text>
     </View>
   );
@@ -424,8 +438,18 @@ function ComparisonResult({
 
 const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 32 },
-  h1: { fontSize: 30, fontWeight: '800', color: colors.text, marginBottom: 8 },
-  yearNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 8 },
+  h1: { fontSize: 30, fontWeight: '800', color: colors.text },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  questionBox: { borderLeftWidth: 4, paddingLeft: 10, paddingVertical: 2, marginBottom: 14 },
+  question: { fontSize: 15, fontStyle: 'italic', color: colors.text },
+  questionScale: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  segment: { flexDirection: 'row', backgroundColor: colors.bg, borderRadius: 10, padding: 3, marginBottom: 10 },
+  segmentBtn: { flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center' },
+  segmentActive: { backgroundColor: '#fff', elevation: 1 },
+  segmentText: { fontWeight: '600', color: colors.muted, fontSize: 13 },
+  inlinePicker: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  inlineLabel: { width: 18, fontSize: 16, color: colors.muted, fontWeight: '700', marginBottom: 6 },
+  yearNav: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   arrow: { fontSize: 30, color: colors.primary },
   year: { fontSize: 20, fontWeight: '700', color: colors.text },
   chip: {

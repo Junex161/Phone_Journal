@@ -33,6 +33,8 @@ export interface Metric {
   key: MetricKey;
   short: string;
   long: string;
+  /** The question as asked in the survey. */
+  question: string;
   min: number;
   max: number;
   color: string;
@@ -40,11 +42,11 @@ export interface Metric {
 }
 
 export const METRICS: Metric[] = [
-  { key: 'rating', short: 'Day', long: 'Day rating', min: 1, max: 10, color: '#4F6DF5' },
-  { key: 'growth', short: 'Growth', long: 'Learning & growth', min: 1, max: 10, color: '#F59E0B' },
-  { key: 'dream_vibe', short: 'Dream', long: 'Dream vibe', min: 1, max: 10, color: '#7C4DDB' },
-  { key: 'rested', short: 'Rested', long: 'Feeling rested', min: 1, max: 10, color: '#10B981' },
-  { key: 'sleep_hours', short: 'Sleep h', long: 'Hours slept', min: 0, max: 16, color: '#0EA5E9', unit: 'h' },
+  { key: 'rating', short: 'Day', long: 'Day rating', question: 'How was your day?', min: 1, max: 10, color: '#4F6DF5' },
+  { key: 'growth', short: 'Growth', long: 'Learning & growth', question: 'How much did you learn or grow today?', min: 1, max: 10, color: '#F59E0B' },
+  { key: 'dream_vibe', short: 'Dream', long: 'Dream vibe', question: 'How was the vibe of your dream(s)?', min: 1, max: 10, color: '#7C4DDB' },
+  { key: 'rested', short: 'Rested', long: 'Feeling rested', question: 'How rested did you feel when you woke up?', min: 1, max: 10, color: '#10B981' },
+  { key: 'sleep_hours', short: 'Sleep h', long: 'Hours slept', question: 'How much did you sleep?', min: 0, max: 16, color: '#0EA5E9', unit: 'h' },
 ];
 
 export const metricByKey = (k: MetricKey) => METRICS.find((m) => m.key === k)!;

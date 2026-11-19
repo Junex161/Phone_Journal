@@ -60,7 +60,7 @@ export function BackupScreen() {
 
       <Card title="Full backup (.zip)">
         <Text style={styles.text}>
-          All entries, survey answers and voice memos in one file. Save it to Google Drive, send it to yourself, or copy
+          All entries, survey answers and voice memos in one file, plus survey.csv (one row per day, e.g. for R). Save it to Google Drive, send it to yourself, or copy
           it to your PC. If your phone dies, install the app on a new phone and use "Import backup".
         </Text>
         <Button label="Export backup" onPress={doBackup} busy={busy === 'backup'} disabled={!!busy} />

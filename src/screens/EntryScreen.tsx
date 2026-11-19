@@ -52,6 +52,8 @@ export function EntryScreen({ date, onChangeDate, onClose }: Props) {
   const [memos, setMemos] = useState<Memo[]>([]);
   const [sleepSuggestion, setSleepSuggestion] = useState<number | null>(null);
   const [recordingKind, setRecordingKind] = useState<MemoKind | null>(null);
+  // Render the body only once everything is loaded, so nothing (like the done box) pops in late.
+  const [loaded, setLoaded] = useState(false);
   const pending = useRef<PendingRecording | null>(null);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -62,6 +64,7 @@ export function EntryScreen({ date, onChangeDate, onClose }: Props) {
     setEntry(e);
     setMemos(m);
     setSleepSuggestion(s);
+    setLoaded(true);
   }, [db, date]);
 
   useEffect(() => {
@@ -214,6 +217,8 @@ export function EntryScreen({ date, onChangeDate, onClose }: Props) {
         <Text style={styles.kicker}>{isToday ? 'Today' : ' '}</Text>
         <Text style={styles.date}>{formatLong(date)}</Text>
 
+        {!loaded ? null : (
+        <>
         {done ? (
           <View style={styles.doneBox}>
             <Text style={styles.doneText}>✓ {isToday ? "You're done for today" : 'This day is complete'}</Text>
@@ -259,6 +264,8 @@ export function EntryScreen({ date, onChangeDate, onClose }: Props) {
           <Text style={styles.subTitle}>Dream journal</Text>
           {renderMemoSection('dream')}
         </Card>
+        </>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
