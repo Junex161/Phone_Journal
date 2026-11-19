@@ -1,10 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { Question } from '../questions';
+import type { ScaleQuestion } from '../questions';
 import { scoreColor } from '../questions';
 import { colors } from '../theme';
 
 interface Props {
-  question: Question;
+  question: ScaleQuestion;
   value: number | null;
   onChange: (value: number | null) => void;
 }
@@ -21,11 +21,8 @@ export function ScaleInput({ question, value, onChange }: Props) {
             <Pressable
               key={n}
               onPress={() => onChange(selected ? null : n)}
-              style={[
-                styles.chip,
-                selected && { backgroundColor: scoreColor(n), borderColor: scoreColor(n) },
-              ]}
-              accessibilityLabel={`${question.short} ${n}`}
+              style={[styles.chip, selected && { backgroundColor: scoreColor(n), borderColor: scoreColor(n) }]}
+              accessibilityLabel={`${question.label} ${n}`}
             >
               <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{n}</Text>
             </Pressable>
@@ -40,9 +37,13 @@ export function ScaleInput({ question, value, onChange }: Props) {
   );
 }
 
+export const surveyStyles = StyleSheet.create({
+  label: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 10 },
+});
+
 const styles = StyleSheet.create({
   wrap: { marginBottom: 18 },
-  label: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 10 },
+  label: surveyStyles.label,
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   chip: {
     width: 30,

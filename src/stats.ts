@@ -112,6 +112,44 @@ export function welchTTest(a: number[], b: number[]): TTestResult | null {
   return { meanA: mA, meanB: mB, nA, nB, t, df, p: tTwoSidedP(t, df), d };
 }
 
+export interface CorrelationResult {
+  r: number;
+  n: number;
+  t: number;
+  df: number;
+  p: number;
+}
+
+/** Pearson correlation with a two-sided t-test for r ≠ 0. Needs at least 3 pairs. */
+export function pearson(xs: number[], ys: number[]): CorrelationResult | null {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 3) return null;
+  const mx = mean(xs);
+  const my = mean(ys);
+  let sxy = 0;
+  let sxx = 0;
+  let syy = 0;
+  for (let i = 0; i < n; i++) {
+    sxy += (xs[i] - mx) * (ys[i] - my);
+    sxx += (xs[i] - mx) ** 2;
+    syy += (ys[i] - my) ** 2;
+  }
+  if (sxx === 0 || syy === 0) return null; // no variation in one variable
+  const r = Math.max(-1, Math.min(1, sxy / Math.sqrt(sxx * syy)));
+  const df = n - 2;
+  if (Math.abs(r) === 1) return { r, n, t: Infinity, df, p: 0 };
+  const t = r * Math.sqrt(df / (1 - r * r));
+  return { r, n, t, df, p: tTwoSidedP(t, df) };
+}
+
+/** Plain-language strength of a correlation coefficient. */
+export function describeR(r: number): string {
+  const a = Math.abs(r);
+  const strength = a < 0.1 ? 'no' : a < 0.3 ? 'a weak' : a < 0.5 ? 'a moderate' : 'a strong';
+  if (strength === 'no') return 'no relationship';
+  return `${strength} ${r > 0 ? 'positive' : 'negative'} relationship`;
+}
+
 /** Trailing moving average over the last `window` values (ignores gaps). */
 export function movingAverage(values: number[], window: number): number[] {
   const out: number[] = [];

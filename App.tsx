@@ -1,7 +1,7 @@
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { DataVersionProvider } from './src/dataVersion';
 import { DB_NAME, migrate } from './src/db';
@@ -9,14 +9,17 @@ import { CalendarScreen } from './src/screens/CalendarScreen';
 import { EntryScreen } from './src/screens/EntryScreen';
 import { ListScreen } from './src/screens/ListScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
+import { BackupScreen } from './src/screens/BackupScreen';
+import { recordingGuard } from './src/recordingGuard';
 import { colors } from './src/theme';
 
-type Tab = 'list' | 'calendar' | 'stats';
+type Tab = 'list' | 'calendar' | 'stats' | 'backup';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'list', label: 'Journal', icon: '📖' },
   { key: 'calendar', label: 'Calendar', icon: '📅' },
   { key: 'stats', label: 'Stats', icon: '📈' },
+  { key: 'backup', label: 'Backup', icon: '💾' },
 ];
 
 export default function App() {
@@ -38,6 +41,10 @@ function Main() {
   // Android back button closes an open entry instead of leaving the app.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (recordingGuard.active) {
+        Alert.alert('Recording in progress', 'Stop the recording first.');
+        return true;
+      }
       if (openDate) {
         setOpenDate(null);
         return true;
@@ -62,6 +69,7 @@ function Main() {
             {tab === 'list' && <ListScreen onOpen={setOpenDate} />}
             {tab === 'calendar' && <CalendarScreen onOpen={setOpenDate} />}
             {tab === 'stats' && <StatsScreen />}
+            {tab === 'backup' && <BackupScreen />}
           </View>
           <View style={styles.tabBar}>
             {TABS.map((t) => (

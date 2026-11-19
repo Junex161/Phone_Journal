@@ -2,10 +2,12 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/Card';
+import { formatHours } from '../components/HoursStepper';
 import { useDataVersion } from '../dataVersion';
-import { daysInMonth, MONTHS, toKey, todayKey, WEEKDAYS_SHORT, weekdayMon } from '../dates';
-import { listEntries, type EntrySummary } from '../db';
+import { addDays, daysInMonth, MONTHS, toKey, todayKey, WEEKDAYS_SHORT, weekdayMon } from '../dates';
+import { isDayDone, listEntries, type EntrySummary } from '../db';
 import { scoreColor } from '../questions';
+import { mean } from '../stats';
 import { colors } from '../theme';
 
 export function CalendarScreen({ onOpen }: { onOpen: (date: string) => void }) {
@@ -42,9 +44,26 @@ export function CalendarScreen({ onOpen }: { onOpen: (date: string) => void }) {
   };
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
 
-  const monthEntries = cells.filter((c): c is string => !!c && !!byDate[c]);
-  const ratings = monthEntries.map((c) => byDate[c].rating).filter((r): r is number => r != null);
-  const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
+  const monthEntries = cells.filter((c): c is string => !!c && !!byDate[c]).map((c) => byDate[c]);
+  const avgOf = (pick: (e: EntrySummary) => number | null) => {
+    const xs = monthEntries.map(pick).filter((x): x is number => x != null);
+    return xs.length ? mean(xs) : null;
+  };
+  const socialAnswered = monthEntries.filter((e) => e.social != null);
+  const socialDays = socialAnswered.filter((e) => e.social === 1).length;
+  const doneDays = monthEntries.filter((e) => isDayDone(e, e.day_memos)).length;
+  const dreams = monthEntries.reduce((a, e) => a + e.dream_memos, 0);
+
+  // Current streak: consecutive days with an entry, ending today (or yesterday if today is still open).
+  let streak = 0;
+  let cursor = byDate[today] ? today : addDays(today, -1);
+  while (byDate[cursor]) {
+    streak++;
+    cursor = addDays(cursor, -1);
+  }
+
+  const fmt = (v: number | null, digits = 1) => (v == null ? '–' : v.toFixed(digits));
+  const avgSleep = avgOf((e) => e.sleep_hours);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -91,20 +110,39 @@ export function CalendarScreen({ onOpen }: { onOpen: (date: string) => void }) {
                     {day}
                   </Text>
                 </View>
-                {e?.dream_memos ? <Text style={styles.moon}>🌙</Text> : null}
               </Pressable>
             );
           })}
         </View>
       </Card>
-      <Card>
-        <Text style={styles.summary}>
-          {monthEntries.length} {monthEntries.length === 1 ? 'entry' : 'entries'} this month
-          {avg != null ? `  ·  average day ${avg.toFixed(1)}` : ''}
-        </Text>
-        <Text style={styles.legend}>Colour = day rating (red 1 → green 10). 🌙 = dream recorded.</Text>
+
+      <Card title={`${MONTHS[month]} at a glance`}>
+        <View style={styles.statGrid}>
+          <Stat label="Entries" value={String(monthEntries.length)} />
+          <Stat label="Complete days" value={String(doneDays)} />
+          <Stat label="Streak" value={`${streak} ${streak === 1 ? 'day' : 'days'}`} />
+          <Stat label="Ø Day" value={fmt(avgOf((e) => e.rating))} />
+          <Stat label="Ø Growth" value={fmt(avgOf((e) => e.growth))} />
+          <Stat
+            label="Social days"
+            value={socialAnswered.length ? `${socialDays} / ${socialAnswered.length}` : '–'}
+          />
+          <Stat label="Ø Sleep" value={avgSleep == null ? '–' : `${formatHours(Math.round(avgSleep * 10) / 10)} h`} />
+          <Stat label="Ø Rested" value={fmt(avgOf((e) => e.rested))} />
+          <Stat label="Ø Dream vibe" value={fmt(avgOf((e) => e.dream_vibe))} />
+          <Stat label="Dreams recorded" value={String(dreams)} />
+        </View>
       </Card>
     </ScrollView>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.stat}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
   );
 }
 
@@ -120,7 +158,8 @@ const styles = StyleSheet.create({
   dayCircle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   todayRing: { borderWidth: 2, borderColor: colors.primary },
   dayText: { color: colors.text, fontWeight: '500' },
-  moon: { position: 'absolute', bottom: 0, right: 4, fontSize: 10 },
-  summary: { fontWeight: '700', color: colors.text },
-  legend: { color: colors.muted, fontSize: 12, marginTop: 6 },
+  statGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 14 },
+  stat: { width: '50%' },
+  statValue: { fontSize: 20, fontWeight: '800', color: colors.text },
+  statLabel: { fontSize: 12, color: colors.muted },
 });

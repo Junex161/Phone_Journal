@@ -8,6 +8,8 @@ export const colors = {
   primarySoft: '#E8ECFE',
   dream: '#7C4DDB',
   dreamSoft: '#F1EAFE',
+  success: '#0E9F6E',
+  successSoft: '#E3F8EF',
   danger: '#E5484D',
   record: '#E5484D',
 };
