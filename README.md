@@ -36,7 +36,23 @@ src/screens/            Journal list, Calendar, Stats, Entry
 src/components/         memo player, 1–10 scale, card
 ```
 
+## Build an APK locally (Windows)
+
+Needs Android Studio (SDK + bundled Java) and Windows long paths enabled
+(`HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled = 1`).
+The project path contains `&` and is too long for the native build, so build from a short copy:
+
+1. Copy the project (without `node_modules`, `.git`, `android`) to `C:\pj`, run `npm ci`.
+2. `npx expo prebuild --platform android --no-install`
+3. In `android/gradle.properties` set `reactNativeArchitectures=arm64-v8a`.
+   In `android/app/build.gradle`, inside `android {`, add
+   `externalNativeBuild { cmake { buildStagingDirectory "C:/c" } }`.
+4. With `JAVA_HOME` = `C:\Program Files\Android\Android Studio\jbr`:
+   `cd android; .\gradlew.bat assembleRelease`
+5. APK: `android/app/build/outputs/apk/release/app-release.apk`
+
+Alternative without local tools: `npx eas-cli build -p android --profile preview` (Expo cloud).
+
 ## Next steps
 
-- Build an installable APK with EAS (`npx eas-cli build -p android --profile preview`), so the app runs without Expo Go.
 - Export / backup of entries and memos.
